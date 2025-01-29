@@ -3,6 +3,7 @@ package edu.kit.hci.soli.cdg
 import com.github.javaparser.ParserConfiguration
 import com.github.javaparser.StaticJavaParser
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration
+import com.github.javaparser.ast.body.EnumDeclaration
 import com.github.javaparser.ast.body.TypeDeclaration
 import com.github.javaparser.ast.type.ClassOrInterfaceType
 import com.github.javaparser.symbolsolver.JavaSymbolSolver
@@ -33,12 +34,11 @@ fun main(args: Array<String>) {
         .toList()
 
     val classes = units.flatMap { it.findAll(ClassOrInterfaceDeclaration::class.java) }
-    val byPackage = classes.groupBy { it.fullyQualifiedName.orElseThrow().substringBeforeLast('.').trimStart(args.getOrElse(1) { "" })}
     val types = classes.associateBy { it.asType() }
     val sb = StringBuilder()
     sb.appendLine("@startuml")
     sb.appendLine("!pragma layout elk")
-    byPackage.forEach { (pkg, it) -> it.forEach {
+    classes.byPackage(args.getOrElse(1) { "" }) { pkg, it ->
         val elems = pkg.split('.').filter { it.isNotBlank() }
         elems.forEach { sb.appendLine("package $it { ") }
         if (it.isInterface) sb.append("interface ")
@@ -50,7 +50,7 @@ fun main(args: Array<String>) {
         }
         sb.appendLine("}")
         elems.forEach { sb.appendLine("}") }
-    } }
+    }
     classes.forEach {
         val isSpringManaged = it.annotations.any {
             it.nameAsString in setOf("Service", "Controller")
@@ -79,14 +79,30 @@ fun main(args: Array<String>) {
                 }
         }
     }
+    units.flatMap { it.findAll(EnumDeclaration::class.java) }.byPackage(args.getOrElse(1) { "" }) { pkg, it ->
+        val elems = pkg.split('.').filter { it.isNotBlank() }
+        elems.forEach { sb.appendLine("package $it { ") }
+        sb.appendLine("enum \"${it.nameAsString}\" as ${it.diagramName} {")
+        it.entries.forEach {
+            sb.appendLine(it.nameAsString)
+        }
+        sb.appendLine("}")
+        elems.forEach { sb.appendLine("}") }
+    }
     sb.append("@enduml")
     System.setProperty("PLANTUML_LIMIT_SIZE", "16384")
     val reader = SourceStringReader(sb.toString())
     val out = Path("result.png")
     out.outputStream().use { reader.outputImage(it) }
-    ProcessBuilder("gimp", out.absolutePathString()).inheritIO().start()
+    println(sb)
+//    ProcessBuilder("gimp", out.absolutePathString()).inheritIO().start()
 }
 
 private fun String.trimStart(start: String) = if (startsWith(start)) substring(start.length) else this
 private val TypeDeclaration<*>.diagramName get() = fullyQualifiedName.orElseThrow().replace('.', '_').replace('$', '_')
 private fun ClassOrInterfaceDeclaration.asType() = ClassOrInterfaceType(nameAsString)
+private fun <T : TypeDeclaration<*>> List<T>.byPackage(pkg: String, action: (pkg: String, it: T) -> Unit) {
+    groupBy { it.fullyQualifiedName.orElseThrow().substringBeforeLast('.').trimStart(pkg) }.forEach { (pkg, it) -> it.forEach {
+        action(pkg, it)
+    } }
+}
