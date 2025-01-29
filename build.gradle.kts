@@ -4,7 +4,7 @@ plugins {
     `maven-publish`
 }
 
-group = "de.frohnmeyer-wds"
+group = "edu.kit.hci.soli"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -23,7 +23,7 @@ kotlin {
 tasks {
     withType<Jar> {
         manifest {
-            attributes["Main-Class"] = "de.frohnmeyerwds.MainKt"
+            attributes["Main-Class"] = "edu.kit.hci.soli.cdg.MainKt"
         }
     }
 
@@ -54,7 +54,7 @@ allprojects {
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            artifactId = "doctex"
+            artifactId = "cdg"
             from(components["kotlin"])
         }
     }

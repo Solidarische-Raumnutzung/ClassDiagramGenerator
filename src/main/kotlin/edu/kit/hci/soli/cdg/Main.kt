@@ -1,15 +1,15 @@
-package de.frohnmeyerwds
+package edu.kit.hci.soli.cdg
 
 import com.github.javaparser.ParserConfiguration
 import com.github.javaparser.StaticJavaParser
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration
-import com.github.javaparser.ast.body.FieldDeclaration
 import com.github.javaparser.ast.body.TypeDeclaration
 import com.github.javaparser.ast.type.ClassOrInterfaceType
 import com.github.javaparser.symbolsolver.JavaSymbolSolver
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver
 import net.sourceforge.plantuml.SourceStringReader
+import kotlin.collections.get
 import kotlin.io.path.*
 
 fun main(args: Array<String>) {
