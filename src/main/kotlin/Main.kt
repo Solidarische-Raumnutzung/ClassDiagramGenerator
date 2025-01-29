@@ -3,6 +3,7 @@ package de.frohnmeyerwds
 import com.github.javaparser.ParserConfiguration
 import com.github.javaparser.StaticJavaParser
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration
+import com.github.javaparser.ast.body.FieldDeclaration
 import com.github.javaparser.ast.body.TypeDeclaration
 import com.github.javaparser.ast.type.ClassOrInterfaceType
 import com.github.javaparser.symbolsolver.JavaSymbolSolver
@@ -32,13 +33,13 @@ fun main(args: Array<String>) {
         .toList()
 
     val classes = units.flatMap { it.findAll(ClassOrInterfaceDeclaration::class.java) }
-    val byPackage = classes.groupBy { it.fullyQualifiedName.orElseThrow().substringBeforeLast('.').trimStart(args.getOrElse(1) { "" } + ".")}
+    val byPackage = classes.groupBy { it.fullyQualifiedName.orElseThrow().substringBeforeLast('.').trimStart(args.getOrElse(1) { "" })}
     val types = classes.associateBy { it.asType() }
     val sb = StringBuilder()
     sb.appendLine("@startuml")
     sb.appendLine("!pragma layout elk")
     byPackage.forEach { (pkg, it) -> it.forEach {
-        val elems = if (pkg.isBlank()) listOf() else pkg.split('.')
+        val elems = pkg.split('.').filter { it.isNotBlank() }
         elems.forEach { sb.appendLine("package $it { ") }
         if (it.isInterface) sb.append("interface ")
         else if (it.isAbstract) sb.append("abstract ")
@@ -51,12 +52,34 @@ fun main(args: Array<String>) {
         elems.forEach { sb.appendLine("}") }
     } }
     classes.forEach {
+        val isSpringManaged = it.annotations.any {
+            it.nameAsString in setOf("Service", "Controller")
+        }
         (it.extendedTypes + it.implementedTypes).mapNotNull { types[it] }.forEach { sup ->
             sb.append(sup.diagramName).append(" <|-- ").appendLine(it.diagramName)
         }
+        if (isSpringManaged) {
+            it.constructors
+                .flatMap { it.parameters }
+                .mapNotNull { types[it.type] }
+                .forEach { inj ->
+                    sb.append(inj.diagramName)
+                        .append(" ..> ")
+                        .append(it.diagramName)
+                        .appendLine(" : injected")
+                }
+            it.fields
+                .filter { it.annotations.any { it.nameAsString == "Autowired" } }
+                .mapNotNull { types[it.elementType] }
+                .forEach { inj ->
+                    sb.append(inj.diagramName)
+                        .append(" ..> ")
+                        .append(it.diagramName)
+                        .appendLine(" : injected")
+                }
+        }
     }
     sb.append("@enduml")
-    println(sb)
     System.setProperty("PLANTUML_LIMIT_SIZE", "16384")
     val reader = SourceStringReader(sb.toString())
     val out = Path("result.png")
