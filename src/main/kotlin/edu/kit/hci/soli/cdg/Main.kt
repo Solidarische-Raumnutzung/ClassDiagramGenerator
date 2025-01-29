@@ -94,7 +94,7 @@ fun main(args: Array<String>) {
     val reader = SourceStringReader(sb.toString())
     val out = Path("result.png")
     out.outputStream().use { reader.outputImage(it) }
-    println(sb)
+//    println(sb)
 //    ProcessBuilder("gimp", out.absolutePathString()).inheritIO().start()
 }
 
